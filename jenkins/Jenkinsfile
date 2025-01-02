@@ -1,0 +1,78 @@
+pipeline {
+    agent any
+    environment {
+        NAME = 'Eddie' 
+        gateway = "eddieu/gateway-service"
+        product = "eddieu/product-service"
+        order = "eddieu/order-service"
+        notification = "eddieu/notification-service"
+        auth = "eddieu/auth-service"
+        user = "eddieu/user-service"
+    }
+    triggers {
+        pollSCM '* * * * *'
+    }
+
+
+    stages {
+
+        stage('Build docker images of the Microservices') {
+            steps {
+                echo "Welcome to ${NAME} Jenkins World"
+                sh "sudo docker build ./auth-service/ -t ${auth}"
+                sh "sudo docker build ./user-service/ -t ${user}"
+                sh "sudo docker build ./notification-service/ -t ${notification}"
+                sh "sudo docker build ./order-service/ -t ${order}"
+                sh "sudo docker build ./product-service/ -t ${product}"
+                sh "sudo docker build ./gateway-service/ -t ${gateway}"
+                echo "Docker image build successfully"
+            }
+        }
+
+        stage('Push Docker Image to repo') {
+            steps {
+                sh "sudo docker push ${auth}"
+                sh "sudo docker push ${user}"
+                sh "sudo docker push ${notification}"
+                sh "sudo docker push ${order}"
+                sh "sudo docker push ${product}"
+                sh "sudo docker push ${gateway}"
+            }
+        }
+
+        stage('Test') {
+            steps {
+                sh "sudo docker images"
+            }
+        }
+        stage('Running the deployment and services on k8s cluster') {
+            steps {
+                sh " kubectl apply -f ./deployment/microgateway/"
+                sh " kubectl apply -f ./deployment/votingapp/"
+                sh " kubectl apply -f ./deployment/timer/"
+                sh " kubectl apply -f ./deployment/weatherapp/"
+                sh " kubectl apply -f ./deployment/webapp-ingress/"
+                sh " kubectl apply -f ./service/votingapp-svc/"
+                sh " kubectl apply -f ./service/timer-svc/"
+                sh " kubectl apply -f ./service/weather-svc/"
+            }
+        }
+    }
+
+    post {
+        success {
+            sh '''
+            kubectl top nodes
+            kubectl get pods
+            kubectl get svc
+            kubectl get deployment
+            kubectl top pods
+            '''
+            sh " kubectl apply -f ./ingress/"
+            echo " A successful ${BUILD_ID} build"
+        }
+        failure {
+            echo "Pipeline failed... Check Please!"
+        }
+    }
+}
