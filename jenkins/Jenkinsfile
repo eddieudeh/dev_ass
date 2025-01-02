@@ -67,7 +67,6 @@ pipeline {
             kubectl get deployment
             kubectl top pods
             '''
-            sh " kubectl apply -f ./ingress/"
             echo " A successful ${BUILD_ID} build"
         }
         failure {
